@@ -1,18 +1,183 @@
+# ============================================
+# SERVER CONFIGURATION
+# ============================================
 server:
-  port: 8080
+  port: 8080  # Port on which this application will run
+              # API Gateway typically uses 8080 as the single entry point for all client requests
 
+# ============================================
+# SPRING CONFIGURATION
+# ============================================
 spring:
+  # Database Configuration
   datasource:
-    url: jdbc:mysql://localhost:3306/student_db
-    username: root
-    password: root
+    url: jdbc:mysql://localhost:3306/student_db  # MySQL database connection URL
+                                                   # Format: jdbc:mysql://[host]:[port]/[database_name]
+    username: root  # Database username
+    password: root  # Database password (Should be externalized in production using environment variables)
+  
+  # JPA (Java Persistence API) Configuration
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: update  # Hibernate DDL (Data Definition Language) mode
+                        # Options:
+                        # - create: Drop existing tables and create new ones on startup
+                        # - create-drop: Create tables on startup, drop on shutdown
+                        # - update: Update schema if needed (RECOMMENDED for dev)
+                        # - validate: Only validate schema, don't make changes
+                        # - none: Do nothing
+    show-sql: true  # Print SQL statements to console
+                    # Useful for debugging and understanding generated queries
+                    # Set to false in production for performance
 
+# ============================================
+# ACTUATOR CONFIGURATION (Monitoring & Management)
+# ============================================
 management:
   endpoints:
     web:
       exposure:
-        include: "*"
+        include: "*"  # Expose all actuator endpoints
+                      # Available endpoints:
+                      # - /actuator/health - Application health status
+                      # - /actuator/info - Application information
+                      # - /actuator/metrics - Application metrics
+                      # - /actuator/env - Environment properties
+                      # - /actuator/loggers - Logger configuration
+                      # - /actuator/refresh - Refresh configuration (Spring Cloud Config)
+                      # - /actuator/circuitbreakers - Circuit breaker status (Resilience4j)
+                      # In production, restrict to specific endpoints for security:
+                      # include: health,info,metrics
+
+# ============================================
+# EUREKA CLIENT CONFIGURATION (Service Discovery)
+# ============================================
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/  # Eureka Server URL
+                                                   # This is where the service will register itself
+                                                   # For multiple Eureka servers (HA):
+                                                   # defaultZone: http://eureka1:8761/eureka/,http://eureka2:8762/eureka/
+    
+    register-with-eureka: true  # Should this service register itself with Eureka?
+                                # true: This service will appear in Eureka dashboard
+                                # false: Only for Eureka Server itself
+    
+    fetch-registry: true  # Should this service fetch the registry from Eureka?
+                         # true: This service can discover other services
+                         # false: This service won't be able to find other services
+                         # Set to false only for standalone applications
+  
+  instance:
+    prefer-ip-address: true  # Register service using IP address instead of hostname
+                            # true: Useful in Docker/Cloud environments where hostnames may not resolve
+                            # false: Use hostname (default)
+                            # Recommended: true for containerized environments
+    
+    # Additional useful instance properties (commented out, add as needed):
+    # instance-id: ${spring.application.name}:${random.value}  # Unique instance ID for running multiple instances
+    # lease-renewal-interval-in-seconds: 30  # How often to send heartbeat to Eureka (default: 30)
+    # lease-expiration-duration-in-seconds: 90  # Time for Eureka to remove instance if no heartbeat (default: 90)
+    # metadata-map:  # Custom metadata for this instance
+    #   zone: mumbai  # Can be used for zone-aware load balancing
+    #   version: 1.0.0
+    #   team: backend
+
+# ============================================
+# ADDITIONAL RECOMMENDED CONFIGURATIONS
+# ============================================
+
+# Uncomment and configure as needed:
+
+# # Application Name (Required for Spring Cloud)
+# spring:
+#   application:
+#     name: student-service  # Unique name for this microservice
+#                           # Used by Eureka for service discovery
+#                           # Other services will use this name to call this service
+
+# # Spring Cloud Config Client (Centralized Configuration)
+# spring:
+#   config:
+#     import: "configserver:http://localhost:8888"  # Config Server URL
+#   profiles:
+#     active: dev  # Active profile (dev, test, prod)
+
+# # Distributed Tracing with Zipkin
+# management:
+#   tracing:
+#     sampling:
+#       probability: 1.0  # 100% sampling (use 0.1 for 10% in production)
+#   zipkin:
+#     tracing:
+#       endpoint: http://localhost:9411/api/v2/spans
+
+# # Logging Configuration
+# logging:
+#   pattern:
+#     level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"  # Include trace IDs in logs
+#   level:
+#     com.example: DEBUG  # Set log level for your application package
+#     org.springframework.web: INFO
+#     org.hibernate: INFO
+
+# # Resilience4j Circuit Breaker (if using)
+# resilience4j:
+#   circuitbreaker:
+#     instances:
+#       courseService:  # Circuit breaker name
+#         register-health-indicator: true
+#         sliding-window-size: 10  # Number of calls to calculate failure rate
+#         minimum-number-of-calls: 5  # Minimum calls before CB can open
+#         wait-duration-in-open-state: 10s  # Time CB stays open before trying half-open
+#         failure-rate-threshold: 50  # Percentage of failures to open CB
+#         slow-call-rate-threshold: 50  # Percentage of slow calls to open CB
+#         slow-call-duration-threshold: 2s  # What is considered a slow call
+
+# # JWT Configuration (if using JWT authentication)
+# jwt:
+#   secret: your-secret-key-should-be-long-and-secure  # Secret key for signing JWT tokens
+#   expiration: 86400000  # Token expiration time in milliseconds (24 hours)
+
+# # CORS Configuration (if needed for frontend)
+# spring:
+#   cloud:
+#     gateway:
+#       globalcors:
+#         corsConfigurations:
+#           '[/**]':
+#             allowedOrigins: "http://localhost:3000"  # Your frontend URL
+#             allowedMethods:
+#               - GET
+#               - POST
+#               - PUT
+#               - DELETE
+#             allowedHeaders: "*"
+#             allowCredentials: true
+
+# ============================================
+# NOTES & BEST PRACTICES
+# ============================================
+# 1. Never commit passwords in plain text - use environment variables or secrets management
+#    Example: password: ${DB_PASSWORD}
+#
+# 2. Use different profiles for different environments (dev, test, prod)
+#    Create: application-dev.yml, application-prod.yml
+#
+# 3. In production:
+#    - Restrict actuator endpoints
+#    - Use HTTPS
+#    - Enable security
+#    - Use connection pooling
+#    - Set appropriate timeouts
+#
+# 4. For Docker/Kubernetes:
+#    - Use service names instead of localhost
+#    - Configure readiness and liveness probes
+#    - Use secrets for sensitive data
+#
+# 5. Monitor these actuator endpoints regularly:
+#    - /actuator/health - For uptime monitoring
+#    - /actuator/metrics - For performance metrics
+#    - /actuator/info - For version information
